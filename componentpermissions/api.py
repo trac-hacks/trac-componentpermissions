@@ -19,11 +19,17 @@ class ComponentPermissionsPolicy(Component):
     # IPermissionRequestor methods
     
     def _get_permission_name(self, component):
-        return 'COMPONENT_%s_VIEW' % (re.sub('[^a-zA-Z]+', '_', component).strip('_').upper(),)
+        name = re.sub('[^a-zA-Z]+', '_', component).strip('_').upper()
+        if name:
+            return 'COMPONENT_%s_VIEW' % (name,)
+        else:
+            return None
 
     def get_permission_actions(self):
         for component in model.Component.select(self.env):
-            yield self._get_permission_name(component.name)
+            permission = self._get_permission_name(component.name)
+            if permission:
+                yield permission
 
     # IPermissionPolicy methods
 
@@ -48,5 +54,5 @@ class ComponentPermissionsPolicy(Component):
 
             if should_check_permissions and int(should_check_permissions) and 'component' in ticket.values:
                 permission = self._get_permission_name(ticket['component'])
-                if permission not in perm and 'TICKET_ADMIN' not in perm:
+                if permission and permission not in perm and 'TICKET_ADMIN' not in perm:
                     return False

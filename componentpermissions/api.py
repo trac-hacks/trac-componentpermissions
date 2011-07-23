@@ -26,6 +26,8 @@ class ComponentPermissionsPolicy(Component):
             return None
 
     def get_permission_actions(self):
+        """Return a list of actions defined by this component."""
+
         yield 'COMPONENT_VIEW'
 
         for component in model.Component.select(self.env):
@@ -36,6 +38,8 @@ class ComponentPermissionsPolicy(Component):
     # IPermissionPolicy methods
 
     def check_permission(self, action, username, resource, perm):
+        """Check that the action can be performed by username on the resource."""
+
         # To prevent recursion
         if action in self.get_permission_actions():
             return

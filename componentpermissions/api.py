@@ -26,6 +26,8 @@ class ComponentPermissionsPolicy(Component):
             return None
 
     def get_permission_actions(self):
+        yield 'COMPONENT_VIEW'
+
         for component in model.Component.select(self.env):
             permission = self._get_permission_name(component.name)
             if permission:
@@ -54,5 +56,5 @@ class ComponentPermissionsPolicy(Component):
 
             if should_check_permissions and int(should_check_permissions) and 'component' in ticket.values:
                 permission = self._get_permission_name(ticket['component'])
-                if permission and permission not in perm and 'TICKET_ADMIN' not in perm:
+                if permission and permission not in perm and 'COMPONENT_VIEW' not in perm:
                     return False

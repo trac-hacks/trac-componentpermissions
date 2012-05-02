@@ -1,6 +1,6 @@
 from setuptools import setup
 
-VERSION = '0.1'
+VERSION = '0.1.1'
 PACKAGE = 'componentpermissions'
 
 setup(
@@ -11,7 +11,7 @@ setup(
 	author_email = 'mitar.trac@tnode.com',
 	url = 'http://mitar.tnode.com/',
 	keywords = 'trac plugin',
-	license = "GPLv3",
+	license = "AGPLv3",
 	packages = [PACKAGE],
     include_package_data = True,
 	install_requires = [],

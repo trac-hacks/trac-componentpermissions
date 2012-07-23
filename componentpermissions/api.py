@@ -1,10 +1,12 @@
 import re
 
 from trac.core import *
-from trac.config import Option
+from trac.config import BoolOption, Option
+from trac.notification import NotifyEmail
 from trac.perm import IPermissionRequestor, IPermissionPolicy
 from trac.ticket import model
 from trac.resource import ResourceNotFound
+from trac.util import as_bool
 
 class ComponentPermissionsPolicy(Component):
     """
@@ -16,6 +18,31 @@ class ComponentPermissionsPolicy(Component):
     ticket_field_name = Option('component-permissions', 'ticket_field_name', 'component_permissions_field',
         """The name of the field which should be checked to see if the component permission is required.""")
 
+    allow_reporter = BoolOption('component-permissions', 'allow_reporter', 'false',
+        """"Whether the reporter of a ticket should have access to that ticket even if
+        they do not have COMPONENT_VIEW or COMPONENT_*_VIEW privileges.""")
+
+    allow_cc = BoolOption('component-permissions', 'allow_cc', 'false',
+        """Whether users listed in the cc field of a ticket should have access to that ticket even
+        if they do not have COMPONENT_VIEW or COMPONENT_*_VIEW privileges.""")
+
+    allow_owner = BoolOption('component-permissions', 'allow_owner', 'false',
+        """Whether the owner of a ticket should have access to that ticket even if
+        they do not have COMPONENT_VIEW or COMPONENT_*_VIEW privileges.""")
+
+    allow_cc_email = BoolOption('component-permissions', 'allow_cc_email', 'false',
+        """Whether users with their e-mail listed in the cc field of a ticket should have access to
+        that ticket even if they do not have COMPONENT_VIEW or COMPONENT_*_VIEW privileges. Make sure
+        e-mail is verified and cannot be freely changed.""")
+
+    def __init__(self):
+        self.account_manager = None
+        try:
+            from acct_mgr.api import AccountManager
+            self.account_manager = AccountManager(self.env)
+        except ImportError:
+            pass
+
     # IPermissionRequestor methods
     
     def _get_permission_name(self, component):
@@ -24,6 +51,35 @@ class ComponentPermissionsPolicy(Component):
             return 'COMPONENT_%s_VIEW' % (name,)
         else:
             return None
+
+    def _get_email(self, username):
+        cnx = self.env.get_db_cnx()
+        cursor = cnx.cursor()
+        cursor.execute("""SELECT DISTINCT e.value FROM session AS s LEFT JOIN session_attribute AS e
+                          ON (e.sid=s.sid AND e.authenticated=1 AND e.name = 'email')
+                          WHERE s.authenticated=1 AND s.sid=%s""", (username,))
+        for email, in cursor:
+            return email
+        return None
+
+    def _get_bypass(self, ticket, username):
+        if not username or username == 'anonymous':
+            return False
+        if self.allow_owner and ticket['owner'] == username:
+            return True
+        if self.allow_reporter and ticket['reporter'] == username:
+            return True
+        cc_list = [user for user in NotifyEmail.addrsep_re.split(ticket['cc']) if user]
+        if self.allow_cc and username in cc_list:
+            return True
+        email = self._get_email(username)
+        if self.allow_cc_email and email and email in cc_list:
+            if self.account_manager:
+                if self.account_manager.email_verified(username, email):
+                    return True
+            else:
+                return True
+        return False
 
     def get_permission_actions(self):
         """Return a list of actions defined by this component."""
@@ -51,14 +107,18 @@ class ComponentPermissionsPolicy(Component):
             resource = resource.parent
         
         if resource and resource.realm == 'ticket' and resource.id is not None:
+            component_permission = 'COMPONENT_VIEW' # Default just to make check logic simpler
+            bypass = False
             try:
                 ticket = model.Ticket(self.env, int(resource.id))
                 should_check_permissions = ticket.values.get(self.ticket_field_name, 0)
+                if as_bool(should_check_permissions):
+                    if 'component' in ticket.values:
+                        component_permission = self._get_permission_name(ticket['component'])
+                    bypass = self._get_bypass(ticket, username)
             except ResourceNotFound:
-                # There is a short race condition here but we cannot do much
-                return
+                should_check_permissions = 1 # Fail safe to prevent a race condition
 
-            if should_check_permissions and int(should_check_permissions) and 'component' in ticket.values:
-                permission = self._get_permission_name(ticket['component'])
-                if permission and permission not in perm and 'COMPONENT_VIEW' not in perm:
+            if as_bool(should_check_permissions):
+                if component_permission not in perm and 'COMPONENT_VIEW' not in perm and not bypass:
                     return False

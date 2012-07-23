@@ -99,6 +99,9 @@ class ComponentPermissionsPolicy(Component):
         # To prevent recursion
         if action in self.get_permission_actions():
             return
+        # To prevent recursion when used together with sensitive tickets
+        if action == 'SENSITIVE_VIEW':
+            return
 
         # Check whether we're dealing with a ticket resource
         while resource:

@@ -50,7 +50,7 @@ class ComponentPermissionsPolicy(Component):
     # IPermissionRequestor methods
     
     def _get_permission_name(self, component):
-        name = re.sub('[^a-zA-Z]+', '_', component).strip('_').upper()
+        name = re.sub('[^a-zA-Z0-9]+', '_', component).strip('_').upper()
         if name:
             return 'COMPONENT_%s_VIEW' % (name,)
         else:

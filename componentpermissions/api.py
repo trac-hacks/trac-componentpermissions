@@ -93,12 +93,14 @@ class ComponentPermissionsPolicy(Component):
     def get_permission_actions(self):
         """Return a list of actions defined by this component."""
 
-        yield 'COMPONENT_VIEW'
+        permissions = ['COMPONENT_VIEW']
 
         for component in model.Component.select(self.env):
             permission = self._get_permission_name(component.name)
             if permission:
-                yield permission
+                permissions.apend(permission)
+
+        return permissions
 
     # IPermissionPolicy methods
 

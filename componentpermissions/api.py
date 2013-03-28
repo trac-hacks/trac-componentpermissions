@@ -15,8 +15,9 @@ class ComponentPermissionsPolicy(Component):
 
     implements(IPermissionRequestor, IPermissionPolicy)
 
-    ticket_field_name = Option('component-permissions', 'ticket_field_name', 'component_permissions_field',
-        """The name of the field which should be checked to see if the component permission is required.""")
+    ticket_field_name = Option('component-permissions', 'ticket_field_name', '',
+        """The name of the field which should be checked to see if the component permission is required.
+        If not defined or empty, component permission is always required.""")
 
     allow_reporter = BoolOption('component-permissions', 'allow_reporter', 'false',
         """"Whether the reporter of a ticket should have access to that ticket even if
@@ -122,7 +123,7 @@ class ComponentPermissionsPolicy(Component):
             bypass = False
             try:
                 ticket = model.Ticket(self.env, int(resource.id))
-                should_check_permissions = ticket.values.get(self.ticket_field_name, 0)
+                should_check_permissions = not self.ticket_field_name or ticket.values.get(self.ticket_field_name, 0)
                 if as_bool(should_check_permissions):
                     if 'component' in ticket.values:
                         component_permission = self._get_permission_name(ticket['component'])

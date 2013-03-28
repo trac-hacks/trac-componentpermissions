@@ -73,10 +73,15 @@ class ComponentPermissionsPolicy(Component):
             return True
         if self.allow_reporter and ticket['reporter'] == username:
             return True
-        if self.allow_cc:
-            cc_list = [user for user in NotifyEmail.addrsep_re.split(ticket['cc']) if user]
-            if username in cc_list:
-                return True
+
+        if not self.allow_cc and not self.allow_cc_email:
+            return False
+
+        cc_list = [user for user in NotifyEmail.addrsep_re.split(ticket['cc']) if user]
+
+        if self.allow_cc and username in cc_list:
+            return True
+
         if self.allow_cc_email:
             email = self._get_email(username)
             if email and email in cc_list:
@@ -85,6 +90,7 @@ class ComponentPermissionsPolicy(Component):
                         return True
                 else:
                     return True
+
         return False
 
     def _get_should_check_permissions(self, ticket):

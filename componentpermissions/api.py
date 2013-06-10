@@ -7,13 +7,14 @@ from trac.perm import IPermissionRequestor, IPermissionPolicy
 from trac.ticket import model
 from trac.resource import ResourceNotFound
 from trac.util import as_bool
+from trac.web import IRequestFilter
 
 class ComponentPermissionsPolicy(Component):
     """
     This component provides permissions based on ticket components for Trac.
     """
 
-    implements(IPermissionRequestor, IPermissionPolicy)
+    implements(IPermissionRequestor, IPermissionPolicy, IRequestFilter)
 
     ticket_field_name = Option('component-permissions', 'ticket_field_name', '',
         """The name of the field which should be checked to see if the component permission is required.
@@ -35,6 +36,9 @@ class ComponentPermissionsPolicy(Component):
         """Whether users with their e-mail listed in the cc field of a ticket should have access to
         that ticket even if they do not have COMPONENT_VIEW or COMPONENT_*_VIEW privileges. Make sure
         e-mail is verified and cannot be freely changed.""")
+
+    hide_components = BoolOption('component-permissions', 'hide_components', 'false',
+        """Whether components the user does not have permissions for should be hidden.""")
 
     def __init__(self):
         self.account_manager = None
@@ -136,3 +140,26 @@ class ComponentPermissionsPolicy(Component):
             if as_bool(should_check_permissions):
                 if component_permission not in perm and 'COMPONENT_VIEW' not in perm and not bypass:
                     return False
+
+    # IRequestFilter methods
+
+    def pre_process_request(self, req, handler):
+        return handler
+
+    def post_process_request(self, req, template, data, content_type):
+        if self.hide_components and not self.ticket_field_name and 'COMPONENT_VIEW' not in req.perm and template in ['ticket_box.html', 'ticket.html', 'ticket_preview.html', 'query.html']:
+            objects = []
+            if data.get('fields', None):
+                objects.append(data['fields'].values() if hasattr(data['fields'], 'values') else data['fields'])
+            if req.chrome.get('script_data', None) and req.chrome['script_data'].get('properties', None):
+                properties = []
+                for name, prop in req.chrome['script_data']['properties'].items():
+                    prop['name'] = name
+                    properties.append(prop)
+                objects.append(properties)
+            for obj in objects:
+                for field in obj:
+                    if field['name'] == 'component':
+                        field['options'] = [component for component in field['options'] if self._get_permission_name(component) in req.perm]
+                        break
+        return (template, data, content_type)

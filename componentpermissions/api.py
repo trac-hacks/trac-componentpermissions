@@ -98,7 +98,7 @@ class ComponentPermissionsPolicy(Component):
         for component in model.Component.select(self.env):
             permission = self._get_permission_name(component.name)
             if permission:
-                permissions.apend(permission)
+                permissions.append(permission)
 
         return permissions
 

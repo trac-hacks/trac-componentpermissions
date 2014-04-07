@@ -131,7 +131,7 @@ class ComponentPermissionsPolicy(Component):
                 ticket = model.Ticket(self.env, int(resource.id))
                 should_check_permissions = not self.ticket_field_name or ticket.values.get(self.ticket_field_name, 0)
                 if as_bool(should_check_permissions):
-                    if 'component' in ticket.values:
+                    if 'component' in ticket.values and ticket['component'] and self._get_permission_name(ticket['component']) in self.get_permission_actions():
                         component_permission = self._get_permission_name(ticket['component'])
                     bypass = self._get_bypass(ticket, username)
             except ResourceNotFound:

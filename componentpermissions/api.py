@@ -162,4 +162,11 @@ class ComponentPermissionsPolicy(Component):
                     if field['name'] == 'component':
                         field['options'] = [component for component in field['options'] if self._get_permission_name(component) in req.perm]
                         break
+            query = data.get('query', None)
+            if query and query.group == 'component' and 'groups' in data:
+                groups = []
+                for (component, tickets) in data['groups']:
+                    if self._get_permission_name(component) in req.perm:
+                        groups.append((component, tickets))
+                data['groups'] = groups
         return (template, data, content_type)
